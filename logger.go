@@ -91,7 +91,14 @@ func (l *Logger) Error(msg string, fields ...Field) {
 	}
 }
 
+type syncer interface {
+	Sync() error
+}
+
 func (l *Logger) Fatal(msg string, fields ...Field) {
 	l.log(FatalLevel, msg, fields)
+	if s, ok := l.w.(syncer); ok {
+		s.Sync()
+	}
 	os.Exit(1)
 }

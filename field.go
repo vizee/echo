@@ -113,6 +113,10 @@ func Echo(key string, val Echoer) Field {
 	return Field{Type: TypeEchoer, Key: key, Data: val}
 }
 
+func EchoBytes(key string, val []byte) Field {
+	return Field{Type: TypeEchoer, Key: key, Data: BytesEchoer(val)}
+}
+
 func Format(key string, format string, args ...interface{}) Field {
 	return Field{Type: TypeFormat, Key: key, Str: format, Data: args}
 }
