@@ -101,6 +101,10 @@ func Errors(key string, val error) Field {
 	return Field{Type: TypeError, Key: key, Data: val}
 }
 
+func Errval(val error) Field {
+	return Field{Type: TypeError, Key: "error", Data: val}
+}
+
 func Stringer(key string, val fmt.Stringer) Field {
 	return Field{Type: TypeStringer, Key: key, Data: val}
 }
