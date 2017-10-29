@@ -23,20 +23,27 @@ func getdigit(n byte) (byte, byte) {
 	return n/10 + '0', n%10 + '0'
 }
 
-func TimeFormat(buf []byte, t time.Time) {
-	buf = buf[:19]
+func TimeFormat(b []byte, t time.Time, msp bool) {
+	tb := b[:19]
 	year, month, day := t.Date()
-	buf[0], buf[1] = getdigit(byte(year / 100))
-	buf[2], buf[3] = getdigit(byte(year % 100))
-	buf[4] = '-'
-	buf[5], buf[6] = getdigit(byte(month))
-	buf[7] = '-'
-	buf[8], buf[9] = getdigit(byte(day))
-	buf[10] = '/'
+	tb[0], tb[1] = getdigit(byte(year / 100))
+	tb[2], tb[3] = getdigit(byte(year % 100))
+	tb[4] = '-'
+	tb[5], tb[6] = getdigit(byte(month))
+	tb[7] = '-'
+	tb[8], tb[9] = getdigit(byte(day))
+	tb[10] = '/'
 	hour, min, sec := t.Clock()
-	buf[11], buf[12] = getdigit(byte(hour))
-	buf[13] = ':'
-	buf[14], buf[15] = getdigit(byte(min))
-	buf[16] = ':'
-	buf[17], buf[18] = getdigit(byte(sec))
+	tb[11], tb[12] = getdigit(byte(hour))
+	tb[13] = ':'
+	tb[14], tb[15] = getdigit(byte(min))
+	tb[16] = ':'
+	tb[17], tb[18] = getdigit(byte(sec))
+	if msp {
+		msb := b[19:23]
+		ms := t.Nanosecond() / 1000000
+		msb[0] = '.'
+		msb[1] = byte(ms/100) + '0'
+		msb[2], msb[3] = getdigit(byte(ms % 100))
+	}
 }

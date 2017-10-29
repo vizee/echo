@@ -13,6 +13,7 @@ type TimeStyle int
 
 const (
 	SimpleTime TimeStyle = iota
+	TimeWithMs
 	RFC3339Time
 	UnixTimeStamp
 	UnixTimeStampNano
@@ -32,22 +33,26 @@ type JSONFormatter struct {
 	EscapeUnicode bool
 }
 
-func (f *JSONFormatter) Format(buf *litebuf.Buffer, t time.Time, level LogLevel, msg string, fields []Field) {
+func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel, msg string, fields []Field) {
 	buf.WriteString(`{"time":`)
 
 	switch f.TimeStyle {
 	case SimpleTime:
 		buf.WriteByte('"')
-		TimeFormat(buf.Reserve(19)[:], t)
+		TimeFormat(buf.Reserve(19), at, false)
+		buf.WriteByte('"')
+	case TimeWithMs:
+		buf.WriteByte('"')
+		TimeFormat(buf.Reserve(23), at, true)
 		buf.WriteByte('"')
 	case RFC3339Time:
 		buf.WriteByte('"')
-		t.AppendFormat(buf.Reserve(25)[:0], time.RFC3339)
+		at.AppendFormat(buf.Reserve(25)[:0], time.RFC3339)
 		buf.WriteByte('"')
 	case UnixTimeStamp:
-		buf.AppendInt(t.Unix(), 10)
+		buf.AppendInt(at.Unix(), 10)
 	case UnixTimeStampNano:
-		buf.AppendInt(t.UnixNano(), 10)
+		buf.AppendInt(at.UnixNano(), 10)
 	default:
 		panic(fmt.Sprintf("unknown time style: %d", f.TimeStyle))
 	}

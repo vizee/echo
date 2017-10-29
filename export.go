@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+var DefaultFormatter Formatter = (*PlainFormatter)(nil)
+
 var export = Logger{
 	level: InfoLevel,
 	w:     os.Stdout,

@@ -9,17 +9,23 @@ import (
 )
 
 var plainTags = [...]string{
-	FatalLevel: " [F]",
-	ErrorLevel: " [E]",
-	WarnLevel:  " [W]",
-	InfoLevel:  " [I]",
-	DebugLevel: " [D]",
+	FatalLevel: " [FAT]",
+	ErrorLevel: " [ERR]",
+	WarnLevel:  " [WRN]",
+	InfoLevel:  " [INF]",
+	DebugLevel: " [DBG]",
 }
 
-type PlainFormatter struct{}
+type PlainFormatter struct {
+	HasMs bool
+}
 
-func (*PlainFormatter) Format(buf *litebuf.Buffer, t time.Time, level LogLevel, msg string, fields []Field) {
-	TimeFormat(buf.Reserve(19), t)
+func (f *PlainFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel, msg string, fields []Field) {
+	if f != nil && f.HasMs {
+		TimeFormat(buf.Reserve(23), at, true)
+	} else {
+		TimeFormat(buf.Reserve(19), at, false)
+	}
 
 	buf.WriteString(plainTags[level])
 

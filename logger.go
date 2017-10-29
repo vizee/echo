@@ -23,8 +23,6 @@ type Formatter interface {
 	Format(buf *litebuf.Buffer, t time.Time, level LogLevel, msg string, fields []Field)
 }
 
-var DefaultFormatter = &PlainFormatter{}
-
 type Logger struct {
 	level LogLevel
 	fmter Formatter
