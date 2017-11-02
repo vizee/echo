@@ -16,16 +16,10 @@ var plainTags = [...]string{
 	DebugLevel: " [DBG]",
 }
 
-type PlainFormatter struct {
-	HasMs bool
-}
+type PlainFormatter struct{}
 
-func (f *PlainFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel, msg string, fields []Field) {
-	if f != nil && f.HasMs {
-		TimeFormat(buf.Reserve(23), at, true)
-	} else {
-		TimeFormat(buf.Reserve(19), at, false)
-	}
+func (*PlainFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel, msg string, fields []Field) {
+	TimeFormat(buf.Reserve(23), at, true)
 
 	buf.WriteString(plainTags[level])
 
