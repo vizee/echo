@@ -120,7 +120,12 @@ func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel
 			case TypeEchoer:
 				field.Data.(Echoer).Echo(buf)
 			case TypeVar:
-				json.NewEncoder(buf).Encode(field.Data)
+				data, err := json.Marshal(field.Data)
+				if err != nil {
+					buf.WriteString("nil")
+					break
+				}
+				buf.Write(trimspace(data))
 			default:
 				buf.WriteString(fmt.Sprintf(`"skipped-type-%d"`, field.Type))
 			}

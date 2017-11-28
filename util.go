@@ -47,3 +47,27 @@ func TimeFormat(b []byte, t time.Time, msp bool) {
 		msb[2], msb[3] = getdigit(byte(ms % 100))
 	}
 }
+
+func trimspace(b []byte) []byte {
+	l := 0
+	for l < len(b) {
+		switch b[l] {
+		case ' ', '\n', '\r', '\t':
+			l++
+		default:
+			goto leftok
+		}
+	}
+leftok:
+	r := len(b) - 1
+	for r > l {
+		switch b[r] {
+		case ' ', '\n', '\r', '\t':
+			r--
+		default:
+			goto rightok
+		}
+	}
+rightok:
+	return b[l : r+1]
+}
