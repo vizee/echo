@@ -9,17 +9,17 @@ import (
 )
 
 var plainTags = [...]string{
-	FatalLevel: " [FAT]",
-	ErrorLevel: " [ERR]",
-	WarnLevel:  " [WRN]",
-	InfoLevel:  " [INF]",
-	DebugLevel: " [DBG]",
+	FatalLevel: " |F|",
+	ErrorLevel: " |E|",
+	WarnLevel:  " |W|",
+	InfoLevel:  " |I|",
+	DebugLevel: " |D|",
 }
 
 type PlainFormatter struct{}
 
 func (*PlainFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel, msg string, fields []Field) {
-	TimeFormat(buf.Reserve(23), at, true)
+	FormatSimpleTime(buf.Reserve(19), at)
 
 	buf.WriteString(plainTags[level])
 
@@ -45,12 +45,12 @@ func (*PlainFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel,
 			case TypeNil:
 				buf.WriteString("nil")
 			case TypeInt, TypeInt32, TypeInt64:
-				buf.AppendInt(int64(field.U64), 10)
+				buf.WriteInt(int64(field.U64), 10)
 			case TypeUint, TypeUint32, TypeUint64:
-				buf.AppendUint(field.U64, 10)
+				buf.WriteUint(field.U64, 10)
 			case TypeHex:
 				buf.WriteString("0x")
-				buf.AppendUint(field.U64, 16)
+				buf.WriteUint(field.U64, 16)
 			case TypeBool:
 				if field.U64 == 1 {
 					buf.WriteString("true")
@@ -58,30 +58,34 @@ func (*PlainFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel,
 					buf.WriteString("false")
 				}
 			case TypeFloat32:
-				buf.AppendFloat(float64(math.Float32frombits(uint32(field.U64))), 'f', -1, 32)
+				buf.WriteFloat(float64(math.Float32frombits(uint32(field.U64))), 'f', -1, 32)
 			case TypeFloat64:
-				buf.AppendFloat(math.Float64frombits(field.U64), 'f', -1, 64)
+				buf.WriteFloat(math.Float64frombits(field.U64), 'f', -1, 64)
 			case TypeString:
-				buf.WriteString(field.Str)
+				buf.WriteString(field.str())
 			case TypeQuote:
-				buf.WriteQuote(field.Str, false)
+				buf.WriteQuote(field.str(), false)
+			case TypeBytes:
+				buf.Write(field.bytes())
 			case TypeError:
-				if err, ok := field.Data.(error); ok {
-					buf.WriteString(err.Error())
+				e := field.error()
+				if e != nil {
+					buf.WriteString(e.Error())
 				} else {
 					buf.WriteString("nil")
 				}
 			case TypeStringer:
-				buf.WriteString(field.Data.(fmt.Stringer).String())
+				buf.WriteString(field.stringer().String())
 			case TypeFormat:
-				fmt.Fprintf(buf, field.Str, field.Data.([]interface{})...)
+				fmtargs := field.fmtargs()
+				fmt.Fprintf(buf, fmtargs.f, fmtargs.args...)
 			case TypeVar:
-				echoVar(buf, field.Data, true)
-			case TypeEchoer:
-				field.Data.(Echoer).Echo(buf)
+				echoVar(buf, field.Ptr1, true)
+			case TypeEcho:
+				field.echo().Echo(buf)
 			case TypeStack:
 				buf.WriteByte('\n')
-				buf.Write(field.Data.([]byte))
+				buf.Write(field.bytes())
 			default:
 				buf.WriteString(fmt.Sprintf("skipped-type(%d)", field.Type))
 			}

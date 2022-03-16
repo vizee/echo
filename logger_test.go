@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func printStruct(t *testing.T, v interface{}) {
+func printStruct(t *testing.T, v any) {
 	rt := reflect.TypeOf(v)
 
 	for i := 0; i < rt.NumField(); i++ {
@@ -25,7 +25,7 @@ func TestLog(t *testing.T) {
 	l := Logger{}
 	l.SetLevel(DebugLevel)
 	fields := []Field{
-		Field{Key: "nil"},
+		{Key: "nil"},
 		Int("int", 1),
 		Uint("uint", 2),
 		Bool("bool", true),
@@ -34,7 +34,7 @@ func TestLog(t *testing.T) {
 		Float64("float64", 4.0),
 		String("string", "string5"),
 		Stringer("stringer", time.Now()),
-		Errors("errors", errors.New("err")),
+		Errval("errors", errors.New("err")),
 		Var("var", map[string]int{"a": 1, "b": 2}),
 		Stack(false),
 	}

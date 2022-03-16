@@ -6,13 +6,15 @@ import (
 )
 
 func TestTimeFormat(t *testing.T) {
-	var buf [23]byte
 	at := time.Now()
-	t.Log(at.String())
-	TimeFormat(buf[:], at, false)
-	t.Log(string(buf[:19]))
-	TimeFormat(buf[:], at, true)
-	t.Log(string(buf[:23]))
+	std := at.Format(time.RFC3339)
+	var buf [26]byte
+	n := FormatTimeRFC3339(buf[:], at)
+	my := string(buf[:n])
+	t.Log("my:", my)
+	if std != my {
+		t.Fail()
+	}
 }
 
 func TestTrimSpace(t *testing.T) {

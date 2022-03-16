@@ -13,10 +13,7 @@ type rtype struct {
 	fields []string
 }
 
-var rtcache struct {
-	sync.RWMutex
-	types map[reflect.Type]*rtype
-}
+var rtcache sync.Map
 
 func makertype(rt reflect.Type) *rtype {
 	n := rt.NumField()
@@ -28,29 +25,21 @@ func makertype(rt reflect.Type) *rtype {
 		rf := rt.Field(i)
 		t.fields[i] = rf.Name
 		if rf.Type.Kind() == reflect.Struct {
-			if _, ok := rtcache.types[rf.Type]; !ok {
+			if _, ok := rtcache.Load(rf.Type); !ok {
 				makertype(rf.Type)
 			}
 		}
 	}
-	rtcache.types[rt] = t
+	rtcache.Store(rt, t)
 	return t
 }
 
 func getrtype(rt reflect.Type) *rtype {
-	rtcache.RLock()
-	t := rtcache.types[rt]
-	rtcache.RUnlock()
-
-	if t == nil {
-		rtcache.Lock()
-		t = rtcache.types[rt]
-		if t == nil {
-			t = makertype(rt)
-		}
-		rtcache.Unlock()
+	t, ok := rtcache.Load(rt)
+	if ok {
+		return t.(*rtype)
 	}
-	return t
+	return makertype(rt)
 }
 
 func dumpStruct(buf *litebuf.Buffer, rv reflect.Value) {
@@ -62,11 +51,11 @@ func dumpStruct(buf *litebuf.Buffer, rv reflect.Value) {
 		}
 		buf.WriteString(rt.fields[i])
 		buf.WriteByte(':')
-		t := rv.Field(i)
-		if t.Kind() == reflect.Interface && t.CanInterface() {
-			echoVar(buf, t.Interface(), false)
+		field := rv.Field(i)
+		if field.Kind() == reflect.Interface && field.CanInterface() {
+			echoVar(buf, field.Interface(), false)
 		} else {
-			dumpValue(buf, t)
+			dumpValue(buf, field)
 		}
 	}
 	buf.WriteByte('}')
@@ -111,16 +100,16 @@ func dumpArray(buf *litebuf.Buffer, rv reflect.Value) {
 func dumpValue(buf *litebuf.Buffer, rv reflect.Value) {
 	switch rv.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		buf.AppendInt(rv.Int(), 10)
+		buf.WriteInt(rv.Int(), 10)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		buf.AppendUint(rv.Uint(), 10)
+		buf.WriteUint(rv.Uint(), 10)
 	case reflect.Ptr, reflect.UnsafePointer, reflect.Chan, reflect.Func:
 		p := rv.Pointer()
 		if p == 0 {
-			buf.WriteString("nil")
+			buf.WriteString("<nil>")
 		} else {
 			buf.WriteString("0x")
-			buf.AppendUint(uint64(p), 16)
+			buf.WriteUint(uint64(p), 16)
 		}
 	case reflect.Bool:
 		if rv.Bool() {
@@ -129,31 +118,31 @@ func dumpValue(buf *litebuf.Buffer, rv reflect.Value) {
 			buf.WriteString("false")
 		}
 	case reflect.Float32:
-		buf.AppendFloat(rv.Float(), 'g', -1, 32)
+		buf.WriteFloat(rv.Float(), 'g', -1, 32)
 	case reflect.Float64:
-		buf.AppendFloat(rv.Float(), 'g', -1, 64)
+		buf.WriteFloat(rv.Float(), 'g', -1, 64)
 	case reflect.String:
 		buf.WriteString(rv.String())
 	case reflect.Interface:
 		if rv.IsNil() {
-			buf.WriteString("nil")
+			buf.WriteString("<nil>")
 		} else {
 			p := rv.InterfaceData()
 			buf.WriteString("{0x")
-			buf.AppendUint(uint64(p[0]), 16)
+			buf.WriteUint(uint64(p[0]), 16)
 			buf.WriteString(",0x")
-			buf.AppendUint(uint64(p[1]), 16)
+			buf.WriteUint(uint64(p[1]), 16)
 			buf.WriteByte('}')
 		}
 	case reflect.Complex64, reflect.Complex128:
 		c := rv.Complex()
-		buf.AppendFloat(real(c), 'g', -1, 64)
+		buf.WriteFloat(real(c), 'g', -1, 64)
 		buf.WriteByte('+')
-		buf.AppendFloat(imag(c), 'g', -1, 64)
+		buf.WriteFloat(imag(c), 'g', -1, 64)
 		buf.WriteByte('i')
 	case reflect.Map:
 		if rv.IsNil() {
-			buf.WriteString("nil")
+			buf.WriteString("<nil>")
 		} else {
 			dumpMap(buf, rv)
 		}
@@ -166,36 +155,36 @@ func dumpValue(buf *litebuf.Buffer, rv reflect.Value) {
 	}
 }
 
-func echoVar(buf *litebuf.Buffer, x interface{}, ptr bool) {
+func echoVar(buf *litebuf.Buffer, x any, ptr bool) {
 	switch t := x.(type) {
 	case nil:
-		buf.WriteString("nil")
+		buf.WriteString("<nil>")
 	case int:
-		buf.AppendInt(int64(t), 10)
+		buf.WriteInt(int64(t), 10)
 	case int8:
-		buf.AppendInt(int64(t), 10)
+		buf.WriteInt(int64(t), 10)
 	case int16:
-		buf.AppendInt(int64(t), 10)
+		buf.WriteInt(int64(t), 10)
 	case int32:
-		buf.AppendInt(int64(t), 10)
+		buf.WriteInt(int64(t), 10)
 	case int64:
-		buf.AppendInt(t, 10)
+		buf.WriteInt(t, 10)
 	case uint:
-		buf.AppendUint(uint64(t), 10)
+		buf.WriteUint(uint64(t), 10)
 	case uint8:
-		buf.AppendUint(uint64(t), 10)
+		buf.WriteUint(uint64(t), 10)
 	case uint16:
-		buf.AppendUint(uint64(t), 10)
+		buf.WriteUint(uint64(t), 10)
 	case uint32:
-		buf.AppendUint(uint64(t), 10)
+		buf.WriteUint(uint64(t), 10)
 	case uint64:
-		buf.AppendUint(t, 10)
+		buf.WriteUint(t, 10)
 	case uintptr:
-		buf.AppendUint(uint64(t), 10)
+		buf.WriteUint(uint64(t), 10)
 	case float32:
-		buf.AppendFloat(float64(t), 'g', -1, 32)
+		buf.WriteFloat(float64(t), 'g', -1, 32)
 	case float64:
-		buf.AppendFloat(t, 'g', -1, 64)
+		buf.WriteFloat(t, 'g', -1, 64)
 	case bool:
 		if t {
 			buf.WriteString("true")
@@ -204,7 +193,7 @@ func echoVar(buf *litebuf.Buffer, x interface{}, ptr bool) {
 		}
 	case unsafe.Pointer:
 		buf.WriteString("0x")
-		buf.AppendUint(uint64(uintptr(t)), 16)
+		buf.WriteUint(uint64(uintptr(t)), 16)
 	case string:
 		buf.WriteString(t)
 	case reflect.Value:
@@ -218,8 +207,4 @@ func echoVar(buf *litebuf.Buffer, x interface{}, ptr bool) {
 			dumpValue(buf, rv)
 		}
 	}
-}
-
-func init() {
-	rtcache.types = make(map[reflect.Type]*rtype)
 }

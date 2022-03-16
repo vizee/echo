@@ -46,8 +46,7 @@ func (l *Logger) SetOutput(w io.Writer) {
 }
 
 func (l *Logger) log(level LogLevel, msg string, fields []Field) {
-	buf := bufpool.Get().(*litebuf.Buffer)
-	buf.Reset()
+	buf := getBuf()
 
 	f := l.fmter
 	if f == nil {
@@ -58,7 +57,7 @@ func (l *Logger) log(level LogLevel, msg string, fields []Field) {
 
 	w := l.w
 	if w == nil {
-		w = os.Stdout
+		w = os.Stderr
 	}
 	w.Write(buf.Bytes())
 

@@ -9,7 +9,7 @@ import (
 )
 
 func TestJSONFormat(t *testing.T) {
-	var stub interface{}
+	var stub any
 	buf := litebuf.Buffer{}
 	f := JSONFormatter{}
 
@@ -47,7 +47,7 @@ func TestJSONFormat(t *testing.T) {
 	}
 
 	buf.Reset()
-	f.TimeStyle = RFC3339Time
+	f.TimeStyle = RFC3339Nano
 	f.Format(&buf, time.Now(), InfoLevel, "Hello", []Field{String("who", "World")})
 	t.Log(buf.String())
 	err = json.Unmarshal(buf.Bytes(), &stub)
@@ -56,7 +56,7 @@ func TestJSONFormat(t *testing.T) {
 	}
 
 	buf.Reset()
-	f.TimeStyle = UnixTimeStamp
+	f.TimeStyle = UnixTimestamp
 	f.Format(&buf, time.Now(), InfoLevel, "Hello", []Field{String("who", "World")})
 	t.Log(buf.String())
 	err = json.Unmarshal(buf.Bytes(), &stub)
@@ -65,7 +65,7 @@ func TestJSONFormat(t *testing.T) {
 	}
 
 	buf.Reset()
-	f.TimeStyle = UnixTimeStampNano
+	f.TimeStyle = UnixNanoTimestamp
 	f.Format(&buf, time.Now(), InfoLevel, "Hello", []Field{String("who", "World")})
 	t.Log(buf.String())
 	err = json.Unmarshal(buf.Bytes(), &stub)

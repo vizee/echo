@@ -49,11 +49,11 @@ type DataType struct {
 	Float32   float32
 	Float64   float64
 	Complex64 complex64
-	Iface     interface{}
-	NilIface  interface{}
-	Slice     []interface{}
-	Array     [8]interface{}
-	MapSI     map[string]interface{}
+	Iface     any
+	NilIface  any
+	Slice     []any
+	Array     [8]any
+	MapSI     map[string]any
 	MapIS     map[int]string
 	MapNil    map[int]string
 	Stringer  fmt.Stringer
@@ -84,9 +84,9 @@ var (
 			Name: "Iface",
 			Int:  len("Iface"),
 		},
-		Slice: []interface{}{"slice", 0},
-		Array: [8]interface{}{"array", false},
-		MapSI: map[string]interface{}{
+		Slice: []any{"slice", 0},
+		Array: [8]any{"array", false},
+		MapSI: map[string]any{
 			"int":    1,
 			"bool":   false,
 			"string": "zzz",
@@ -119,9 +119,9 @@ var (
 
 func TestEchoVar(t *testing.T) {
 	buf := litebuf.Buffer{}
+	t.Logf("fmt: %+v", &data)
 	echoVar(&buf, &data, true)
-	t.Logf("%+v", &data)
-	t.Log(buf.String())
+	t.Log("echo:", buf.String())
 }
 
 func BenchmarkPrintfPlusV(b *testing.B) {

@@ -13,10 +13,10 @@ type TimeStyle int
 
 const (
 	SimpleTime TimeStyle = iota
-	TimeWithMs
-	RFC3339Time
-	UnixTimeStamp
-	UnixTimeStampNano
+	RFC3339
+	RFC3339Nano
+	UnixTimestamp
+	UnixNanoTimestamp
 )
 
 var jsonTags = [...]string{
@@ -39,20 +39,22 @@ func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel
 	switch f.TimeStyle {
 	case SimpleTime:
 		buf.WriteByte('"')
-		TimeFormat(buf.Reserve(19), at, false)
+		FormatSimpleTime(buf.Reserve(19), at)
 		buf.WriteByte('"')
-	case TimeWithMs:
+	case RFC3339:
 		buf.WriteByte('"')
-		TimeFormat(buf.Reserve(23), at, true)
+		n := FormatTimeRFC3339(buf.Reserve(25), at)
+		buf.Trim(25 - n)
 		buf.WriteByte('"')
-	case RFC3339Time:
+	case RFC3339Nano:
 		buf.WriteByte('"')
-		at.AppendFormat(buf.Reserve(25)[:0], time.RFC3339)
+		n := len(at.AppendFormat(buf.Reserve(35)[:0], time.RFC3339Nano))
+		buf.Trim(35 - n)
 		buf.WriteByte('"')
-	case UnixTimeStamp:
-		buf.AppendInt(at.Unix(), 10)
-	case UnixTimeStampNano:
-		buf.AppendInt(at.UnixNano(), 10)
+	case UnixTimestamp:
+		buf.WriteInt(at.Unix(), 10)
+	case UnixNanoTimestamp:
+		buf.WriteInt(at.UnixNano(), 10)
 	default:
 		panic(fmt.Sprintf("unknown time style: %d", f.TimeStyle))
 	}
@@ -61,7 +63,7 @@ func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel
 	if f.LevelTag {
 		buf.WriteString(jsonTags[level])
 	} else {
-		buf.AppendInt(int64(level), 10)
+		buf.WriteInt(int64(level), 10)
 	}
 
 	if msg != "" {
@@ -84,12 +86,12 @@ func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel
 			case TypeNil:
 				buf.WriteString("null")
 			case TypeInt, TypeInt32, TypeInt64:
-				buf.AppendInt(int64(field.U64), 10)
+				buf.WriteInt(int64(field.U64), 10)
 			case TypeUint, TypeUint32, TypeUint64:
-				buf.AppendUint(field.U64, 10)
+				buf.WriteUint(field.U64, 10)
 			case TypeHex:
 				buf.WriteString(`"0x`)
-				buf.AppendUint(field.U64, 16)
+				buf.WriteUint(field.U64, 16)
 				buf.WriteByte('"')
 			case TypeBool:
 				if field.U64 == 1 {
@@ -98,34 +100,35 @@ func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel
 					buf.WriteString("false")
 				}
 			case TypeFloat32:
-				buf.AppendFloat(float64(math.Float32frombits(uint32(field.U64))), 'f', -1, 32)
+				buf.WriteFloat(float64(math.Float32frombits(uint32(field.U64))), 'f', -1, 32)
 			case TypeFloat64:
-				buf.AppendFloat(math.Float64frombits(field.U64), 'f', -1, 64)
+				buf.WriteFloat(math.Float64frombits(field.U64), 'f', -1, 64)
 			case TypeString, TypeQuote:
-				buf.WriteQuote(field.Str, f.EscapeUnicode)
+				buf.WriteQuote(field.str(), f.EscapeUnicode)
 			case TypeError:
-				if err, ok := field.Data.(error); ok {
-					buf.WriteQuote(err.Error(), f.EscapeUnicode)
+				e := field.error()
+				if e != nil {
+					buf.WriteQuote(e.Error(), f.EscapeUnicode)
 				} else {
-					buf.WriteString(`""`)
+					buf.WriteString("null")
 				}
 			case TypeStringer:
-				buf.WriteQuote(field.Data.(fmt.Stringer).String(), f.EscapeUnicode)
+				buf.WriteQuote(field.stringer().String(), f.EscapeUnicode)
 			case TypeFormat:
-				tmpbuf := bufpool.Get().(*litebuf.Buffer)
-				tmpbuf.Reset()
-				fmt.Fprintf(buf, field.Str, field.Data.([]interface{}))
-				buf.WriteQuote(tmpbuf.String(), false)
+				tmpbuf := getBuf()
+				fmtargs := field.fmtargs()
+				fmt.Fprintf(tmpbuf, fmtargs.f, fmtargs.args...)
+				buf.WriteQuote(tmpbuf.UnsafeString(), false)
 				bufpool.Put(tmpbuf)
-			case TypeEchoer:
-				field.Data.(Echoer).Echo(buf)
 			case TypeVar:
-				data, err := json.Marshal(field.Data)
+				data, err := json.Marshal(field.Ptr1)
 				if err != nil {
 					buf.WriteString("nil")
 					break
 				}
 				buf.Write(trimspace(data))
+			case TypeEcho:
+				field.echo().Echo(buf)
 			default:
 				buf.WriteString(fmt.Sprintf(`"skipped-type-%d"`, field.Type))
 			}

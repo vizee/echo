@@ -7,67 +7,93 @@ import (
 	"github.com/vizee/litebuf"
 )
 
-type BytesEchoer []byte
+var bufpool = sync.Pool{}
 
-func (be BytesEchoer) Echo(buf *litebuf.Buffer) {
-	buf.Write([]byte(be))
-}
-
-var bufpool = sync.Pool{
-	New: func() interface{} {
-		return &litebuf.Buffer{}
-	},
+func getBuf() *litebuf.Buffer {
+	b := bufpool.Get()
+	if b != nil {
+		buf := b.(*litebuf.Buffer)
+		buf.Reset()
+		return buf
+	}
+	return &litebuf.Buffer{}
 }
 
 func getdigit(n byte) (byte, byte) {
 	return n/10 + '0', n%10 + '0'
 }
 
-func TimeFormat(b []byte, t time.Time, msp bool) {
-	tb := b[:19]
+func FormatSimpleTime(buf []byte, t time.Time) {
+	// 2006-01-02 15:04:05
+	b := buf[:19]
 	year, month, day := t.Date()
-	tb[0], tb[1] = getdigit(byte(year / 100))
-	tb[2], tb[3] = getdigit(byte(year % 100))
-	tb[4] = '-'
-	tb[5], tb[6] = getdigit(byte(month))
-	tb[7] = '-'
-	tb[8], tb[9] = getdigit(byte(day))
-	tb[10] = '/'
+	b[0], b[1] = getdigit(byte(year / 100))
+	b[2], b[3] = getdigit(byte(year % 100))
+	b[4] = '-'
+	b[5], b[6] = getdigit(byte(month))
+	b[7] = '-'
+	b[8], b[9] = getdigit(byte(day))
+	b[10] = ' '
 	hour, min, sec := t.Clock()
-	tb[11], tb[12] = getdigit(byte(hour))
-	tb[13] = ':'
-	tb[14], tb[15] = getdigit(byte(min))
-	tb[16] = ':'
-	tb[17], tb[18] = getdigit(byte(sec))
-	if msp {
-		msb := b[19:23]
-		ms := t.Nanosecond() / 1000000
-		msb[0] = '.'
-		msb[1] = byte(ms/100) + '0'
-		msb[2], msb[3] = getdigit(byte(ms % 100))
+	b[11], b[12] = getdigit(byte(hour))
+	b[13] = ':'
+	b[14], b[15] = getdigit(byte(min))
+	b[16] = ':'
+	b[17], b[18] = getdigit(byte(sec))
+}
+
+func FormatTimeRFC3339(buf []byte, t time.Time) int {
+	// 2006-01-02T15:04:05Z07:00
+	b := buf[:26]
+	year, month, day := t.Date()
+	b[0], b[1] = getdigit(byte(year / 100))
+	b[2], b[3] = getdigit(byte(year % 100))
+	b[4] = '-'
+	b[5], b[6] = getdigit(byte(month))
+	b[7] = '-'
+	b[8], b[9] = getdigit(byte(day))
+	b[10] = 'T'
+	hour, min, sec := t.Clock()
+	b[11], b[12] = getdigit(byte(hour))
+	b[13] = ':'
+	b[14], b[15] = getdigit(byte(min))
+	b[16] = ':'
+	b[17], b[18] = getdigit(byte(sec))
+	_, offset := t.Zone()
+	if offset == 0 {
+		b[19] = 'Z'
+		return 20
+	}
+	if offset > 0 {
+		b[19] = '+'
+	} else {
+		b[19] = '-'
+		offset = -offset
+	}
+	offset /= 60
+	b[20], b[21] = getdigit(byte(offset / 60))
+	b[22] = ':'
+	b[23], b[24] = getdigit(byte(offset % 60))
+	return 25
+}
+
+func isspace(c byte) bool {
+	switch c {
+	case ' ', '\n', '\r', '\t':
+		return true
+	default:
+		return false
 	}
 }
 
 func trimspace(b []byte) []byte {
 	l := 0
-	for l < len(b) {
-		switch b[l] {
-		case ' ', '\n', '\r', '\t':
-			l++
-		default:
-			goto leftok
-		}
+	for l < len(b) && isspace(b[l]) {
+		l++
 	}
-leftok:
 	r := len(b) - 1
-	for r > l {
-		switch b[r] {
-		case ' ', '\n', '\r', '\t':
-			r--
-		default:
-			goto rightok
-		}
+	for r > l && isspace(b[r]) {
+		r--
 	}
-rightok:
 	return b[l : r+1]
 }

@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"unsafe"
 
 	"github.com/vizee/litebuf"
 )
 
-type FieldType uint
+type FieldType uint8
 
 const (
 	TypeNil FieldType = iota
@@ -24,25 +25,59 @@ const (
 	TypeFloat64
 	TypeString
 	TypeQuote
+	TypeBytes
 	TypeError
 	TypeStringer
 	TypeFormat
 	TypeVar
-	TypeEchoer
+	TypeEcho
 	TypeStack
 	maxType
 )
 
-type Echoer interface {
+type Value interface {
 	Echo(w *litebuf.Buffer)
 }
 
+type formatArgs struct {
+	f    string
+	args []any
+}
+
 type Field struct {
-	Type FieldType
 	Key  string
-	Data interface{}
+	Ptr1 unsafe.Pointer
+	Ptr2 unsafe.Pointer
 	U64  uint64
-	Str  string
+	Type FieldType
+}
+
+func (f *Field) str() string {
+	return raw2str(f.Ptr1, f.U64)
+}
+
+func (f *Field) bytes() []byte {
+	return raw2bytes(f.Ptr1, f.U64)
+}
+
+func (f *Field) eface() any {
+	return raw2eface(f.Ptr1, f.Ptr2)
+}
+
+func (f *Field) error() error {
+	return raw2iface[error](f.Ptr1, f.Ptr2)
+}
+
+func (f *Field) stringer() fmt.Stringer {
+	return raw2iface[fmt.Stringer](f.Ptr1, f.Ptr2)
+}
+
+func (f *Field) fmtargs() *formatArgs {
+	return (*formatArgs)(f.Ptr1)
+}
+
+func (f *Field) echo() Value {
+	return raw2iface[Value](f.Ptr1, f.Ptr2)
 }
 
 func Bool(key string, val bool) Field {
@@ -90,39 +125,50 @@ func Float64(key string, val float64) Field {
 }
 
 func String(key string, val string) Field {
-	return Field{Type: TypeString, Key: key, Str: val}
+	p, n := str2raw(val)
+	return Field{Type: TypeString, Key: key, Ptr1: p, U64: n}
 }
 
 func Quote(key string, val string) Field {
-	return Field{Type: TypeQuote, Key: key, Str: val}
+	p, n := str2raw(val)
+	return Field{Type: TypeQuote, Key: key, Ptr1: p, U64: n}
 }
 
-func Errors(key string, val error) Field {
-	return Field{Type: TypeError, Key: key, Data: val}
+func Bytes(key string, val []byte) Field {
+	p, n := bytes2raw(val)
+	return Field{Type: TypeBytes, Key: key, Ptr1: p, U64: n}
 }
 
-func Errval(val error) Field {
-	return Field{Type: TypeError, Key: "error", Data: val}
+func Errval(key string, val error) Field {
+	p1, p2 := iface2raw(val)
+	return Field{Type: TypeError, Key: key, Ptr1: p1, Ptr2: p2}
+}
+
+func Errors(val error) Field {
+	return Errval("error", val)
 }
 
 func Stringer(key string, val fmt.Stringer) Field {
-	return Field{Type: TypeStringer, Key: key, Data: val}
+	p1, p2 := iface2raw(val)
+	return Field{Type: TypeStringer, Key: key, Ptr1: p1, Ptr2: p2}
 }
 
-func Var(key string, val interface{}) Field {
-	return Field{Type: TypeVar, Key: key, Data: val}
+func Var(key string, val any) Field {
+	p1, p2 := eface2raw(val)
+	return Field{Type: TypeVar, Key: key, Ptr1: p1, Ptr2: p2}
 }
 
-func Echo(key string, val Echoer) Field {
-	return Field{Type: TypeEchoer, Key: key, Data: val}
+func Echo(key string, val Value) Field {
+	p1, p2 := iface2raw(val)
+	return Field{Type: TypeEcho, Key: key, Ptr1: p1, Ptr2: p2}
 }
 
-func EchoBytes(key string, val []byte) Field {
-	return Field{Type: TypeEchoer, Key: key, Data: BytesEchoer(val)}
-}
-
-func Format(key string, format string, args ...interface{}) Field {
-	return Field{Type: TypeFormat, Key: key, Str: format, Data: args}
+func Format(key string, format string, args ...any) Field {
+	fa := &formatArgs{
+		f:    format,
+		args: args,
+	}
+	return Field{Type: TypeFormat, Key: key, Ptr1: unsafe.Pointer(fa)}
 }
 
 func Stack(all bool) Field {
@@ -139,5 +185,6 @@ func Stack(all bool) Field {
 		}
 		n += n
 	}
-	return Field{Type: TypeStack, Data: buf[:n]}
+	p, m := bytes2raw(buf)
+	return Field{Type: TypeStack, Ptr1: p, U64: m}
 }
