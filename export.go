@@ -29,22 +29,22 @@ func SetFormatter(f Formatter) {
 	export.SetFormmatter(f)
 }
 
-func Debug(msg string, fields ...Field) {
+func D(msg string, fields ...Field) {
 	export.Debug(msg, fields...)
 }
 
-func Info(msg string, fields ...Field) {
+func I(msg string, fields ...Field) {
 	export.Info(msg, fields...)
 }
 
-func Warn(msg string, fields ...Field) {
+func W(msg string, fields ...Field) {
 	export.Warn(msg, fields...)
 }
 
-func Error(msg string, fields ...Field) {
+func E(msg string, fields ...Field) {
 	export.Error(msg, fields...)
 }
 
-func Fatal(msg string, fields ...Field) {
+func F(msg string, fields ...Field) {
 	export.Fatal(msg, fields...)
 }
