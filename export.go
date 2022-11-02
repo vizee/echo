@@ -5,12 +5,10 @@ import (
 	"os"
 )
 
-var DefaultFormatter Formatter = (*PlainFormatter)(nil)
-
-var export = Logger{
+var export = Logger[io.Writer, Formatter]{
 	level: InfoLevel,
 	w:     os.Stdout,
-	fmter: DefaultFormatter,
+	fmter: (*PlainFormatter)(nil),
 }
 
 func Level() LogLevel {

@@ -33,18 +33,18 @@ func raw2bytes(p unsafe.Pointer, n uint64) []byte {
 	return *(*[]byte)(unsafe.Pointer(&v))
 }
 
-type efaceView struct {
+type anyView struct {
 	ty unsafe.Pointer
 	p  unsafe.Pointer
 }
 
-func eface2raw(f any) (unsafe.Pointer, unsafe.Pointer) {
-	v := *(*efaceView)(unsafe.Pointer(&f))
+func any2raw(f any) (unsafe.Pointer, unsafe.Pointer) {
+	v := *(*anyView)(unsafe.Pointer(&f))
 	return v.ty, v.p
 }
 
-func raw2eface(ty unsafe.Pointer, p unsafe.Pointer) any {
-	v := efaceView{ty: ty, p: p}
+func raw2any(ty unsafe.Pointer, p unsafe.Pointer) any {
+	v := anyView{ty: ty, p: p}
 	return *(*any)(unsafe.Pointer(&v))
 }
 

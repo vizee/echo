@@ -1,28 +1,14 @@
 package echo
 
 import (
-	"errors"
-	"io/ioutil"
-	"reflect"
+	"io"
+	"os"
 	"testing"
 	"time"
 )
 
-func printStruct(t *testing.T, v any) {
-	rt := reflect.TypeOf(v)
-
-	for i := 0; i < rt.NumField(); i++ {
-		f := rt.Field(i)
-		t.Logf("%-20s %-10d %d", f.Name, f.Offset, f.Type.Size())
-	}
-}
-
-func TestLoggerStruct(t *testing.T) {
-	printStruct(t, Logger{})
-}
-
 func TestLog(t *testing.T) {
-	l := Logger{}
+	l := NewLogger(os.Stdout, &PlainFormatter{})
 	l.SetLevel(DebugLevel)
 	fields := []Field{
 		{Key: "nil"},
@@ -33,8 +19,8 @@ func TestLog(t *testing.T) {
 		Float32("float32", 3.0),
 		Float64("float64", 4.0),
 		String("string", "string5"),
-		Stringer("stringer", time.Now()),
-		Errval("errors", errors.New("err")),
+		Stringers("stringer", time.Now()),
+		Errval("errors", io.EOF),
 		Var("var", map[string]int{"a": 1, "b": 2}),
 		Stack(false),
 	}
@@ -42,9 +28,8 @@ func TestLog(t *testing.T) {
 }
 
 func BenchmarkLog1Field(b *testing.B) {
-	l := Logger{}
+	l := NewLogger(io.Discard, &PlainFormatter{})
 	l.SetLevel(DebugLevel)
-	l.SetOutput(ioutil.Discard)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

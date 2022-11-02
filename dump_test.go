@@ -1,10 +1,9 @@
 package echo
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
+	"reflect"
 	"testing"
 	"unsafe"
 
@@ -56,10 +55,10 @@ type DataType struct {
 	MapSI     map[string]any
 	MapIS     map[int]string
 	MapNil    map[int]string
-	Stringer  fmt.Stringer
+	Stringer0 *stringer
+	Stringer1 Stringer
 	inner     *DataType
 	Subdata   SubdataType
-	Encoder   *json.Encoder
 	AnonymousType
 	Func func()
 	Chan chan struct{}
@@ -99,7 +98,11 @@ var (
 			3: "three",
 		},
 		MapNil: nil,
-		Stringer: &stringer{
+		Stringer0: &stringer{
+			n:      2,
+			target: "i am stringer",
+		},
+		Stringer1: &stringer{
 			n:      1,
 			target: "/path/to/file",
 		},
@@ -108,7 +111,6 @@ var (
 			Name: "sub",
 			Int:  len("sub"),
 		},
-		Encoder: &json.Encoder{},
 		AnonymousType: AnonymousType{
 			AT: "anonymous",
 		},
@@ -117,22 +119,25 @@ var (
 	}
 )
 
-func TestEchoVar(t *testing.T) {
+func Test_dumpValue(t *testing.T) {
 	buf := litebuf.Buffer{}
 	t.Logf("fmt: %+v", &data)
-	echoVar(&buf, &data, true)
+	dumpValue(&buf, reflect.ValueOf(&data))
 	t.Log("echo:", buf.String())
 }
 
 func BenchmarkPrintfPlusV(b *testing.B) {
+	buf := litebuf.Buffer{}
 	for i := 0; i < b.N; i++ {
-		fmt.Fprintf(ioutil.Discard, "%+v", &data)
+		buf.Reset()
+		fmt.Fprintf(&buf, "%+v", &data)
 	}
 }
 
 func BenchmarkEchoVar(b *testing.B) {
+	buf := litebuf.Buffer{}
 	for i := 0; i < b.N; i++ {
-		buf := litebuf.Buffer{}
-		echoVar(&buf, &data, true)
+		buf.Reset()
+		dumpValue(&buf, reflect.ValueOf(&data))
 	}
 }

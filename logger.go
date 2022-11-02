@@ -23,66 +23,65 @@ type Formatter interface {
 	Format(buf *litebuf.Buffer, t time.Time, level LogLevel, msg string, fields []Field)
 }
 
-type Logger struct {
+type Logger[W io.Writer, F Formatter] struct {
 	level LogLevel
-	fmter Formatter
-	w     io.Writer
+	fmter F
+	w     W
 }
 
-func (l *Logger) Level() LogLevel {
+func NewLogger[W io.Writer, F Formatter](w W, fmter F) Logger[W, F] {
+	return Logger[W, F]{
+		level: InfoLevel,
+		fmter: fmter,
+		w:     w,
+	}
+}
+
+func (l *Logger[W, F]) Level() LogLevel {
 	return l.level
 }
 
-func (l *Logger) SetLevel(level LogLevel) {
+func (l *Logger[W, F]) SetLevel(level LogLevel) {
 	l.level = level
 }
 
-func (l *Logger) SetFormmatter(f Formatter) {
+func (l *Logger[W, F]) SetFormmatter(f F) {
 	l.fmter = f
 }
 
-func (l *Logger) SetOutput(w io.Writer) {
+func (l *Logger[W, F]) SetOutput(w W) {
 	l.w = w
 }
 
-func (l *Logger) log(level LogLevel, msg string, fields []Field) {
+func (l *Logger[W, F]) log(level LogLevel, msg string, fields []Field) {
 	buf := getBuf()
 
-	f := l.fmter
-	if f == nil {
-		f = DefaultFormatter
-	}
-	f.Format(buf, time.Now(), level, msg, fields)
+	l.fmter.Format(buf, time.Now(), level, msg, fields)
 	buf.WriteByte('\n')
-
-	w := l.w
-	if w == nil {
-		w = os.Stderr
-	}
-	w.Write(buf.Bytes())
+	l.w.Write(buf.Bytes())
 
 	bufpool.Put(buf)
 }
 
-func (l *Logger) Debug(msg string, fields ...Field) {
+func (l *Logger[W, F]) Debug(msg string, fields ...Field) {
 	if l.level >= DebugLevel {
 		l.log(DebugLevel, msg, fields)
 	}
 }
 
-func (l *Logger) Info(msg string, fields ...Field) {
+func (l *Logger[W, F]) Info(msg string, fields ...Field) {
 	if l.level >= InfoLevel {
 		l.log(InfoLevel, msg, fields)
 	}
 }
 
-func (l *Logger) Warn(msg string, fields ...Field) {
+func (l *Logger[W, F]) Warn(msg string, fields ...Field) {
 	if l.level >= WarnLevel {
 		l.log(WarnLevel, msg, fields)
 	}
 }
 
-func (l *Logger) Error(msg string, fields ...Field) {
+func (l *Logger[W, F]) Error(msg string, fields ...Field) {
 	if l.level >= ErrorLevel {
 		l.log(ErrorLevel, msg, fields)
 	}
@@ -92,9 +91,9 @@ type syncer interface {
 	Sync() error
 }
 
-func (l *Logger) Fatal(msg string, fields ...Field) {
+func (l *Logger[W, F]) Fatal(msg string, fields ...Field) {
 	l.log(FatalLevel, msg, fields)
-	if s, ok := l.w.(syncer); ok {
+	if s, ok := any(l.w).(syncer); ok {
 		s.Sync()
 	}
 	os.Exit(1)

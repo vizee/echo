@@ -1,8 +1,8 @@
 package echo
 
 import (
-	"fmt"
 	"math"
+	"reflect"
 	"time"
 
 	"github.com/vizee/litebuf"
@@ -62,32 +62,30 @@ func (*PlainFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel,
 			case TypeFloat64:
 				buf.WriteFloat(math.Float64frombits(field.U64), 'f', -1, 64)
 			case TypeString:
-				buf.WriteString(field.str())
+				buf.WriteString(field.ToString())
 			case TypeQuote:
-				buf.WriteQuote(field.str(), false)
+				buf.WriteQuote(field.ToString(), false)
 			case TypeBytes:
-				buf.Write(field.bytes())
+				buf.Write(field.ToBytes())
 			case TypeError:
-				e := field.error()
+				e := field.ToError()
 				if e != nil {
 					buf.WriteString(e.Error())
 				} else {
 					buf.WriteString("nil")
 				}
 			case TypeStringer:
-				buf.WriteString(field.stringer().String())
-			case TypeFormat:
-				fmtargs := field.fmtargs()
-				fmt.Fprintf(buf, fmtargs.f, fmtargs.args...)
+				buf.WriteString(field.ToStringer().String())
 			case TypeVar:
-				echoVar(buf, field.Ptr1, true)
+				dumpValue(buf, reflect.ValueOf(field.ToAny()))
 			case TypeEcho:
-				field.echo().Echo(buf)
+				field.ToEcho().Echo(buf)
 			case TypeStack:
-				buf.WriteByte('\n')
-				buf.Write(field.bytes())
+				buf.WriteString("stack: <\n")
+				buf.Write(field.ToBytes())
+				buf.WriteString(">\n")
 			default:
-				buf.WriteString(fmt.Sprintf("skipped-type(%d)", field.Type))
+				buf.WriteString("<invalid type>")
 			}
 		}
 

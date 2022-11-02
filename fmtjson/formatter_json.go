@@ -2,10 +2,10 @@ package echo
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"time"
 
+	"github.com/vizee/echo"
 	"github.com/vizee/litebuf"
 )
 
@@ -16,15 +16,15 @@ const (
 	RFC3339
 	RFC3339Nano
 	UnixTimestamp
-	UnixNanoTimestamp
+	UnixTimestampNano
 )
 
 var jsonTags = [...]string{
-	FatalLevel: `"fatal"`,
-	ErrorLevel: `"error"`,
-	WarnLevel:  `"warn"`,
-	InfoLevel:  `"info"`,
-	DebugLevel: `"debug"`,
+	echo.FatalLevel: `"fatal"`,
+	echo.ErrorLevel: `"error"`,
+	echo.WarnLevel:  `"warn"`,
+	echo.InfoLevel:  `"info"`,
+	echo.DebugLevel: `"debug"`,
 }
 
 type JSONFormatter struct {
@@ -33,17 +33,17 @@ type JSONFormatter struct {
 	EscapeUnicode bool
 }
 
-func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel, msg string, fields []Field) {
+func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level echo.LogLevel, msg string, fields []echo.Field) {
 	buf.WriteString(`{"time":`)
 
 	switch f.TimeStyle {
-	case SimpleTime:
+	default:
 		buf.WriteByte('"')
-		FormatSimpleTime(buf.Reserve(19), at)
+		echo.FormatSimpleTime(buf.Reserve(19), at)
 		buf.WriteByte('"')
 	case RFC3339:
 		buf.WriteByte('"')
-		n := FormatTimeRFC3339(buf.Reserve(25), at)
+		n := echo.FormatTimeRFC3339(buf.Reserve(25), at)
 		buf.Trim(25 - n)
 		buf.WriteByte('"')
 	case RFC3339Nano:
@@ -53,10 +53,8 @@ func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel
 		buf.WriteByte('"')
 	case UnixTimestamp:
 		buf.WriteInt(at.Unix(), 10)
-	case UnixNanoTimestamp:
+	case UnixTimestampNano:
 		buf.WriteInt(at.UnixNano(), 10)
-	default:
-		panic(fmt.Sprintf("unknown time style: %d", f.TimeStyle))
 	}
 
 	buf.WriteString(`,"level":`)
@@ -83,54 +81,48 @@ func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel
 			buf.WriteByte(':')
 
 			switch field.Type {
-			case TypeNil:
+			case echo.TypeNil:
 				buf.WriteString("null")
-			case TypeInt, TypeInt32, TypeInt64:
+			case echo.TypeInt, echo.TypeInt32, echo.TypeInt64:
 				buf.WriteInt(int64(field.U64), 10)
-			case TypeUint, TypeUint32, TypeUint64:
+			case echo.TypeUint, echo.TypeUint32, echo.TypeUint64:
 				buf.WriteUint(field.U64, 10)
-			case TypeHex:
+			case echo.TypeHex:
 				buf.WriteString(`"0x`)
 				buf.WriteUint(field.U64, 16)
 				buf.WriteByte('"')
-			case TypeBool:
+			case echo.TypeBool:
 				if field.U64 == 1 {
 					buf.WriteString("true")
 				} else {
 					buf.WriteString("false")
 				}
-			case TypeFloat32:
+			case echo.TypeFloat32:
 				buf.WriteFloat(float64(math.Float32frombits(uint32(field.U64))), 'f', -1, 32)
-			case TypeFloat64:
+			case echo.TypeFloat64:
 				buf.WriteFloat(math.Float64frombits(field.U64), 'f', -1, 64)
-			case TypeString, TypeQuote:
-				buf.WriteQuote(field.str(), f.EscapeUnicode)
-			case TypeError:
-				e := field.error()
+			case echo.TypeString, echo.TypeQuote:
+				buf.WriteQuote(field.ToString(), f.EscapeUnicode)
+			case echo.TypeError:
+				e := field.ToError()
 				if e != nil {
 					buf.WriteQuote(e.Error(), f.EscapeUnicode)
 				} else {
 					buf.WriteString("null")
 				}
-			case TypeStringer:
-				buf.WriteQuote(field.stringer().String(), f.EscapeUnicode)
-			case TypeFormat:
-				tmpbuf := getBuf()
-				fmtargs := field.fmtargs()
-				fmt.Fprintf(tmpbuf, fmtargs.f, fmtargs.args...)
-				buf.WriteQuote(tmpbuf.UnsafeString(), false)
-				bufpool.Put(tmpbuf)
-			case TypeVar:
-				data, err := json.Marshal(field.Ptr1)
+			case echo.TypeStringer:
+				buf.WriteQuote(field.ToStringer().String(), f.EscapeUnicode)
+			case echo.TypeVar:
+				data, err := json.Marshal(field.ToAny())
 				if err != nil {
-					buf.WriteString("nil")
+					buf.WriteString("{}")
 					break
 				}
 				buf.Write(trimspace(data))
-			case TypeEcho:
-				field.echo().Echo(buf)
+			case echo.TypeEcho:
+				field.ToEcho().Echo(buf)
 			default:
-				buf.WriteString(fmt.Sprintf(`"skipped-type-%d"`, field.Type))
+				buf.WriteString("{}")
 			}
 		}
 
@@ -138,4 +130,25 @@ func (f *JSONFormatter) Format(buf *litebuf.Buffer, at time.Time, level LogLevel
 	}
 
 	buf.WriteByte('}')
+}
+
+func isspace(c byte) bool {
+	switch c {
+	case ' ', '\n', '\r', '\t':
+		return true
+	default:
+		return false
+	}
+}
+
+func trimspace(b []byte) []byte {
+	l := 0
+	for l < len(b) && isspace(b[l]) {
+		l++
+	}
+	r := len(b) - 1
+	for r > l && isspace(b[r]) {
+		r--
+	}
+	return b[l : r+1]
 }

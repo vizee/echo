@@ -1,7 +1,6 @@
 package echo
 
 import (
-	"fmt"
 	"math"
 	"runtime"
 	"unsafe"
@@ -28,20 +27,17 @@ const (
 	TypeBytes
 	TypeError
 	TypeStringer
-	TypeFormat
 	TypeVar
 	TypeEcho
 	TypeStack
-	maxType
 )
 
 type Value interface {
 	Echo(w *litebuf.Buffer)
 }
 
-type formatArgs struct {
-	f    string
-	args []any
+type Stringer interface {
+	String() string
 }
 
 type Field struct {
@@ -52,31 +48,27 @@ type Field struct {
 	Type FieldType
 }
 
-func (f *Field) str() string {
+func (f *Field) ToString() string {
 	return raw2str(f.Ptr1, f.U64)
 }
 
-func (f *Field) bytes() []byte {
+func (f *Field) ToBytes() []byte {
 	return raw2bytes(f.Ptr1, f.U64)
 }
 
-func (f *Field) eface() any {
-	return raw2eface(f.Ptr1, f.Ptr2)
+func (f *Field) ToAny() any {
+	return raw2any(f.Ptr1, f.Ptr2)
 }
 
-func (f *Field) error() error {
+func (f *Field) ToError() error {
 	return raw2iface[error](f.Ptr1, f.Ptr2)
 }
 
-func (f *Field) stringer() fmt.Stringer {
-	return raw2iface[fmt.Stringer](f.Ptr1, f.Ptr2)
+func (f *Field) ToStringer() Stringer {
+	return raw2iface[Stringer](f.Ptr1, f.Ptr2)
 }
 
-func (f *Field) fmtargs() *formatArgs {
-	return (*formatArgs)(f.Ptr1)
-}
-
-func (f *Field) echo() Value {
+func (f *Field) ToEcho() Value {
 	return raw2iface[Value](f.Ptr1, f.Ptr2)
 }
 
@@ -148,27 +140,19 @@ func Errors(val error) Field {
 	return Errval("error", val)
 }
 
-func Stringer(key string, val fmt.Stringer) Field {
+func Stringers(key string, val Stringer) Field {
 	p1, p2 := iface2raw(val)
 	return Field{Type: TypeStringer, Key: key, Ptr1: p1, Ptr2: p2}
 }
 
 func Var(key string, val any) Field {
-	p1, p2 := eface2raw(val)
+	p1, p2 := any2raw(val)
 	return Field{Type: TypeVar, Key: key, Ptr1: p1, Ptr2: p2}
 }
 
 func Echo(key string, val Value) Field {
 	p1, p2 := iface2raw(val)
 	return Field{Type: TypeEcho, Key: key, Ptr1: p1, Ptr2: p2}
-}
-
-func Format(key string, format string, args ...any) Field {
-	fa := &formatArgs{
-		f:    format,
-		args: args,
-	}
-	return Field{Type: TypeFormat, Key: key, Ptr1: unsafe.Pointer(fa)}
 }
 
 func Stack(all bool) Field {

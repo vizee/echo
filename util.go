@@ -76,24 +76,3 @@ func FormatTimeRFC3339(buf []byte, t time.Time) int {
 	b[23], b[24] = getdigit(byte(offset % 60))
 	return 25
 }
-
-func isspace(c byte) bool {
-	switch c {
-	case ' ', '\n', '\r', '\t':
-		return true
-	default:
-		return false
-	}
-}
-
-func trimspace(b []byte) []byte {
-	l := 0
-	for l < len(b) && isspace(b[l]) {
-		l++
-	}
-	r := len(b) - 1
-	for r > l && isspace(b[r]) {
-		r--
-	}
-	return b[l : r+1]
-}

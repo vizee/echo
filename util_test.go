@@ -16,11 +16,3 @@ func TestTimeFormat(t *testing.T) {
 		t.Fail()
 	}
 }
-
-func TestTrimSpace(t *testing.T) {
-	t.Log(trimspace([]byte("")))
-	t.Log(trimspace([]byte(" ")))
-	t.Log(trimspace([]byte("a ")))
-	t.Log(trimspace([]byte(" a")))
-	t.Log(trimspace([]byte(" a\t")))
-}
